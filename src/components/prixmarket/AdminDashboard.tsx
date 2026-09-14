@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback, useSyncExternalStore } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Card,
@@ -51,10 +51,42 @@ export function AdminDashboard() {
   const queryClient = useQueryClient()
 
   // Récupère l'identité admin (localStorage côté client)
-  const [adminTelegramId, setAdminTelegramId] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null
-    return localStorage.getItem('adminTelegramId')
-  })
+  // useSyncExternalStore évite le mismatch SSR : renvoie null côté serveur et lors
+  // du premier render client, puis la vraie valeur après mount.
+  // Le subscribe écoute un événement custom "adminIdChanged" pour re-render après set.
+  const subscribe = useCallback((cb: () => void) => {
+    window.addEventListener('adminIdChanged', cb)
+    return () => window.removeEventListener('adminIdChanged', cb)
+  }, [])
+  const getClientSnapshot = useCallback(() => {
+    try {
+      return localStorage.getItem('adminTelegramId')
+    } catch {
+      return null
+    }
+  }, [])
+  const getServerSnapshot = useCallback(() => null, [])
+
+  const adminTelegramId = useSyncExternalStore(
+    subscribe,
+    getClientSnapshot,
+    getServerSnapshot
+  )
+
+  // Setter : met à jour localStorage puis notifie les subscribers
+  const setAdminTelegramId = useCallback((value: string | null) => {
+    try {
+      if (value === null) {
+        localStorage.removeItem('adminTelegramId')
+      } else {
+        localStorage.setItem('adminTelegramId', value)
+      }
+      // Notifie le useSyncExternalStore pour qu'il re-lise la valeur
+      window.dispatchEvent(new Event('adminIdChanged'))
+    } catch (e) {
+      console.error('Erreur mise à jour adminTelegramId:', e)
+    }
+  }, [])
 
   // Agents
   const { data: agentsData, isLoading: agentsLoading, error: agentsError } = useQuery({

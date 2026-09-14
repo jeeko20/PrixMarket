@@ -1,5 +1,6 @@
 'use client'
 
+import { useSyncExternalStore } from 'react'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatMontant, freshBadge, timeAgo } from '@/lib/prix-utils'
@@ -37,8 +38,34 @@ const typeColors: Record<string, string> = {
   DETAIL: 'bg-jade/10 text-jade border-jade/30',
 }
 
+// Pattern React officiel pour détecter qu'on est côté client (sans mismatch SSR).
+// useSyncExternalStore renvoie false sur le serveur, true sur le client après mount.
+const subscribe = () => () => {}
+const getClientSnapshot = () => true
+const getServerSnapshot = () => false
+
+/**
+ * Calcule les valeurs dépendant de Date.now() uniquement côté client (après mount).
+ * Évite l'erreur d'hydration SSR/client (les valeurs diffèrent).
+ */
+function useClientTime(dateCollecte: string | Date) {
+  const isClient = useSyncExternalStore(subscribe, getClientSnapshot, getServerSnapshot)
+
+  if (!isClient) {
+    // Valeur stable rendue côté serveur ET lors du premier rendu client
+    return {
+      timeAgoText: '',
+      fresh: { level: 'stale' as const, label: '', color: 'gray' as const },
+    }
+  }
+  return {
+    timeAgoText: timeAgo(dateCollecte),
+    fresh: freshBadge(dateCollecte),
+  }
+}
+
 export function PriceCard({ prix, showProduit = true }: { prix: PrixCardData; showProduit?: boolean }) {
-  const fresh = freshBadge(prix.dateCollecte)
+  const { timeAgoText, fresh } = useClientTime(prix.dateCollecte)
   const isGros = prix.type === 'GROS'
 
   return (
@@ -82,10 +109,12 @@ export function PriceCard({ prix, showProduit = true }: { prix: PrixCardData; sh
         </div>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-          <span className="inline-flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            {timeAgo(prix.dateCollecte)}
-          </span>
+          {timeAgoText && (
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {timeAgoText}
+            </span>
+          )}
           {prix.agent && (
             <span className="inline-flex items-center gap-1">
               <User className="h-3 w-3" />
@@ -94,9 +123,11 @@ export function PriceCard({ prix, showProduit = true }: { prix: PrixCardData; sh
           )}
         </div>
 
-        <Badge variant="outline" className={freshColors[fresh.color]}>
-          {fresh.label}
-        </Badge>
+        {fresh.label && (
+          <Badge variant="outline" className={freshColors[fresh.color]}>
+            {fresh.label}
+          </Badge>
+        )}
       </CardContent>
     </Card>
   )
