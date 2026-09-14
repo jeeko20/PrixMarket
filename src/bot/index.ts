@@ -654,39 +654,39 @@ async function handleAI(ctx: Context) {
       { tools, toolChoice: 'auto' }
     )
 
-    // Si l'IA a demandé un outil, on l'exécute
+    // Si l'IA a demandé un outil, on l'exécute puis on relance avec les données
     if (response.toolCalls && response.toolCalls.length > 0) {
       const tc = response.toolCalls[0]
       if (tc.name === 'chercher_prix') {
         const args = tc.args as { produit?: string; commune?: string }
         const data = await chercherPrix(args.produit ?? '', args.commune ?? '')
-        // Re-call l'IA avec les résultats
-        const response2 = await aiProvider.chat(
-          [
-            {
-              role: 'system',
-              content: t('bot.ai.system_prompt', lg, { langue: langueNom }),
-            },
-            { role: 'user', content: text },
-            {
-              role: 'assistant',
-              content: null as unknown as string,
-              // grammY n'attend pas de tool_call ici — on simule avec un message tool
-            } as never,
-            {
-              role: 'user',
-              content: `Voici les données réelles issues de la base :\n${JSON.stringify(data)}`,
-            },
-          ]
-        )
 
-        return ctx.reply(response2.text || t('bot.ai.unavailable', lg))
+        // Re-call l'IA avec les résultats injectés comme contexte utilisateur
+        // (format simple compatible avec tous les LLM, sans dépendre du role "tool")
+        const response2 = await aiProvider.chat([
+          {
+            role: 'system',
+            content:
+              t('bot.ai.system_prompt', lg, { langue: langueNom }) +
+              '\n\nUn outil "chercher_prix" a déjà été appelé pour cette question. Voici les données réelles extraites de la base de données. Utilise-les EXCLUSIVEMENT pour répondre — ne JAMAIS inventer un prix. Si les données sont vides ou ne correspondent pas à la question, dis-le clairement.',
+          },
+          { role: 'user', content: `Question : ${text}` },
+          {
+            role: 'user',
+            content:
+              `Résultat de l'outil chercher_prix (JSON) :\n${JSON.stringify(data, null, 2)}\n\n` +
+              `Réponds à ma question en utilisant uniquement ces données, en ${langueNom}.`,
+          },
+        ])
+
+        const finalText = response2.text || t('bot.ai.unavailable', lg)
+        return ctx.reply(finalText.slice(0, 4000)) // Telegram limite à 4096 caractères
       }
     }
 
-    // Pas de tool call → on affiche le texte
-    if (response.text) {
-      return ctx.reply(response.text)
+    // Pas de tool call → on affiche le texte (mais on vérifie que ce n'est pas vide)
+    if (response.text && response.text.trim().length > 0) {
+      return ctx.reply(response.text.slice(0, 4000))
     }
 
     return ctx.reply(t('bot.ai.unavailable', lg))
