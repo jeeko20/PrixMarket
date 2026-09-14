@@ -541,20 +541,161 @@ bot.callbackQuery('lang_fr', async (ctx) => {
 bot.callbackQuery('menu_search', async (ctx) => {
   await ctx.answerCallbackQuery()
   const lg = await getUserLangue(ctx.from.id.toString())
-  return ctx.reply(t('bot.prix.usage', lg))
+  const produits = await db.produit.findMany({ orderBy: { nom: 'asc' } })
+
+  if (produits.length === 0) {
+    return ctx.reply(lg === 'FR' ? 'Aucun produit disponible.' : 'Pa gen pwodui.')
+  }
+
+  const text = lg === 'FR' ? '🔍 Choisissez un produit :' : '🔍 Chwazi yon pwodui :'
+  return ctx.reply(text, {
+    reply_markup: productsKeyboard(produits, 0, lg),
+  })
+})
+
+// Pagination des produits
+bot.callbackQuery(/^produit_page_(\d+)$/, async (ctx) => {
+  await ctx.answerCallbackQuery()
+  const page = parseInt(ctx.match![1], 10)
+  const lg = await getUserLangue(ctx.from.id.toString())
+  const produits = await db.produit.findMany({ orderBy: { nom: 'asc' } })
+
+  await ctx.editMessageReplyMarkup({
+    reply_markup: productsKeyboard(produits, page, lg),
+  })
+})
+
+// Affiche les prix d'un produit au clic
+bot.callbackQuery(/^produit_(.+)$/, async (ctx) => {
+  const produitId = ctx.callbackQuery.data.replace('produit_', '')
+  // Ignore si ça matche une autre callback (produit_page_XXX est géré avant)
+  if (produitId.startsWith('page_')) return
+
+  await ctx.answerCallbackQuery()
+  const lg = await getUserLangue(ctx.from.id.toString())
+
+  const produit = await db.produit.findUnique({ where: { id: produitId } })
+  if (!produit) {
+    return ctx.reply(lg === 'FR' ? 'Produit introuvable.' : 'Pa jwenen pwodui sa a.')
+  }
+
+  // Récupère les derniers prix par (marcheId, type)
+  const prix = await db.prix.findMany({
+    where: { produitId },
+    include: { marche: { include: { commune: true } } },
+    orderBy: { dateCollecte: 'desc' },
+    take: 100,
+  })
+
+  if (prix.length === 0) {
+    const kb = new InlineKeyboard()
+      .text(lg === 'FR' ? '← Retour' : '← Retounen', 'menu_search').row()
+      .text('🏠', 'menu_home')
+    return ctx.reply(
+      lg === 'FR'
+        ? `Aucun prix trouvé pour « ${produit.nom} ».`
+        : `Pa gen pri pou « ${produit.nom} ».`,
+      { reply_markup: kb }
+    )
+  }
+
+  // Déduplique par (marcheId, type)
+  const vue = new Map<string, (typeof prix)[number]>()
+  for (const p of prix) {
+    const key = `${p.marcheId}|${p.type}`
+    if (!vue.has(key)) vue.set(key, p)
+  }
+
+  // Groupe par marché
+  const byMarche = new Map<
+    string,
+    {
+      nom: string
+      commune: string
+      communeId: string
+      gros?: number
+      detail?: number
+      date?: Date
+    }
+  >()
+  for (const p of vue.values()) {
+    const key = p.marcheId
+    if (!byMarche.has(key)) {
+      byMarche.set(key, {
+        nom: p.marche.nom,
+        commune: p.marche.commune.nom,
+        communeId: p.marche.commune.id,
+        date: p.dateCollecte,
+      })
+    }
+    const e = byMarche.get(key)!
+    if (p.type === 'GROS' && e.gros === undefined) e.gros = p.montant
+    if (p.type === 'DETAIL' && e.detail === undefined) e.detail = p.montant
+  }
+
+  // Construit le message
+  const lines: string[] = [
+    `🍚 ${produit.nom}`,
+    '',
+  ]
+
+  for (const [, info] of byMarche) {
+    lines.push(`📍 ${info.nom} — ${info.commune}`)
+    if (info.gros !== undefined) {
+      lines.push(`  ${lg === 'FR' ? 'Gros' : 'Gro'} : ${info.gros} HTG`)
+    }
+    if (info.detail !== undefined) {
+      lines.push(`  ${lg === 'FR' ? 'Détail' : 'Detay'} : ${info.detail} HTG`)
+    }
+    if (info.date) {
+      lines.push(`  🕐 ${formatDateShort(info.date, lg)}`)
+    }
+    lines.push('')
+  }
+
+  const kb = new InlineKeyboard()
+    .text(lg === 'FR' ? '← Autres produits' : '← Lòt pwodui', 'menu_search').row()
+    .text('🏠', 'menu_home')
+
+  return ctx.reply(lines.join('\n'), { reply_markup: kb })
+})
+
+bot.callbackQuery('menu_home', async (ctx) => {
+  await ctx.answerCallbackQuery()
+  const lg = await getUserLangue(ctx.from.id.toString())
+  const lines = [
+    t('bot.welcome.title', lg),
+    '',
+    t('bot.welcome.description', lg),
+    '',
+    t('bot.welcome.menu_title', lg),
+  ].join('\n')
+
+  return ctx.reply(lines, {
+    reply_markup: mainMenu(lg),
+  })
+})
+
+// Bouton "noop" utilisé pour afficher de l'info (numéro de page) sans action
+bot.callbackQuery('noop', async (ctx) => {
+  await ctx.answerCallbackQuery()
 })
 
 bot.callbackQuery('menu_commune', async (ctx) => {
   await ctx.answerCallbackQuery()
   const lg = await getUserLangue(ctx.from.id.toString())
-  const communes = await db.commune.findMany({ include: { _count: { select: { marches: true } } } })
+  const communes = await db.commune.findMany({
+    include: { _count: { select: { marches: true } } },
+  })
   const keyboard = new InlineKeyboard()
   for (const c of communes) {
-    keyboard.text(`📍 ${c.nom} (${c._count.marches})`, `commune_${c.id}`)
+    keyboard.text(`📍 ${c.nom} (${c._count.marches})`, `commune_${c.id}`).row()
   }
-  return ctx.reply(lg === 'FR' ? 'Choisissez une commune :' : 'Chwazi yon komin :', {
-    reply_markup: keyboard,
-  })
+  keyboard.text('🏠', 'menu_home')
+  return ctx.reply(
+    lg === 'FR' ? 'Choisissez une commune :' : 'Chwazi yon komin :',
+    { reply_markup: keyboard }
+  )
 })
 
 bot.callbackQuery(/^commune_/, async (ctx) => {
@@ -565,7 +706,9 @@ bot.callbackQuery(/^commune_/, async (ctx) => {
     where: { id: communeId },
     include: { marches: true },
   })
-  if (!commune) return ctx.reply('Commune introuvable.')
+  if (!commune) {
+    return ctx.reply(lg === 'FR' ? 'Commune introuvable.' : 'Pa jwenen komin sa a.')
+  }
 
   // Liste les derniers prix de cette commune, groupés par produit
   const prix = await db.prix.findMany({
@@ -579,21 +722,130 @@ bot.callbackQuery(/^commune_/, async (ctx) => {
     const k = `${p.produitId}|${p.marcheId}|${p.type}`
     if (!vue.has(k)) vue.set(k, p)
   }
-  if (vue.size === 0) return ctx.reply('Aucun prix collecté pour le moment.')
-
-  const lines: string[] = [`${commune.nom} — derniers prix`]
-  for (const p of vue.values()) {
-    lines.push(
-      `• ${p.produit.nom} (${p.marche.nom}) — ${p.type === 'GROS' ? 'Gro' : 'Detay'}: ${p.montant} HTG`
+  if (vue.size === 0) {
+    const kb = new InlineKeyboard()
+      .text(lg === 'FR' ? '← Retour communes' : '← Retounen', 'menu_commune').row()
+      .text('🏠', 'menu_home')
+    return ctx.reply(
+      lg === 'FR' ? 'Aucun prix collecté pour le moment.' : 'Pa gen pri yo jwenn pou kounye a.',
+      { reply_markup: kb }
     )
   }
-  return ctx.reply(lines.join('\n'))
+
+  const lines: string[] = [`📍 ${commune.nom} — ${lg === 'FR' ? 'derniers prix' : 'dènye pri yo'}`, '']
+  for (const p of vue.values()) {
+    lines.push(
+      `• ${p.produit.nom} (${p.marche.nom}) — ${p.type === 'GROS' ? (lg === 'FR' ? 'Gros' : 'Gro') : (lg === 'FR' ? 'Détail' : 'Detay')}: ${p.montant} HTG`
+    )
+  }
+
+  const kb = new InlineKeyboard()
+    .text(lg === 'FR' ? '← Autres communes' : '← Lòt komin', 'menu_commune').row()
+    .text('🏠', 'menu_home')
+
+  return ctx.reply(lines.join('\n'), { reply_markup: kb })
 })
 
 bot.callbackQuery('menu_submit', async (ctx) => {
   await ctx.answerCallbackQuery()
-  // Renvoie vers /soumettre
-  return ctx.reply('/soumettre')
+  const lg = await getUserLangue(ctx.from.id.toString())
+  // Au lieu d'envoyer du texte, on déclenche directement la conversation /soumettre
+  // en simulant la commande (le handler command('soumettre') va traiter)
+  const agent = await getAgent(ctx.from.id.toString())
+  if (!agent) {
+    const kb = new InlineKeyboard().text('🏠', 'menu_home')
+    return ctx.reply(t('bot.soumettre.not_registered', lg), { reply_markup: kb })
+  }
+  if (!agent.actif) {
+    const kb = new InlineKeyboard().text('🏠', 'menu_home')
+    return ctx.reply(t('bot.soumettre.inactive', lg), { reply_markup: kb })
+  }
+
+  // Démarre la conversation
+  soumissions.set(ctx.from.id.toString(), {
+    step: 'produit',
+    communeId: agent.communeId,
+    communeNom: agent.commune.nom,
+  })
+
+  const produits = await db.produit.findMany({
+    orderBy: { nom: 'asc' },
+    take: 50,
+  })
+
+  // Affiche la liste avec des boutons cliquables pour démarrer la conversation
+  const kb = new InlineKeyboard()
+  const perPage = 8
+  for (let i = 0; i < Math.min(perPage, produits.length); i++) {
+    kb.text(produits[i].nom, `submit_produit_${produits[i].id}`).row()
+  }
+  kb.text('🏠', 'menu_home')
+
+  return ctx.reply(
+    `${t('bot.soumettre.ask_produit', lg)}\n\n${lg === 'FR' ? 'Cliquez sur un produit ou écrivez son nom :' : 'Klike sou yon pwodui oswa ekri non li :'}`,
+    { reply_markup: kb }
+  )
+})
+
+// Permet de sélectionner un produit au clic pour démarrer la soumission
+bot.callbackQuery(/^submit_produit_(.+)$/, async (ctx) => {
+  const produitId = ctx.callbackQuery.data.replace('submit_produit_', '')
+  await ctx.answerCallbackQuery()
+  const lg = await getUserLangue(ctx.from.id.toString())
+
+  const userId = ctx.from.id.toString()
+  const state = soumissions.get(userId)
+  if (!state || state.step !== 'produit') {
+    return ctx.reply(lg === 'FR' ? 'Session expirée. Utilisez /soumettre.' : 'Sesyon ekspire. Itilize /soumettre.')
+  }
+
+  const produit = await db.produit.findUnique({ where: { id: produitId } })
+  if (!produit) {
+    return ctx.reply(t('bot.soumettre.produit_not_found', lg))
+  }
+
+  state.produitId = produit.id
+  state.produitNom = produit.nom
+  state.step = 'marche'
+
+  // Liste les marchés de la commune de l'agent
+  const marches = await db.marche.findMany({
+    where: { communeId: state.communeId! },
+  })
+  const kb = new InlineKeyboard()
+  for (const m of marches) {
+    kb.text(m.nom, `submit_marche_${m.id}`).row()
+  }
+  kb.text('🏠', 'menu_home')
+
+  return ctx.reply(
+    `${t('bot.soumettre.produit_selected', lg, { nom: produit.nom })}\n\n${t('bot.soumettre.ask_marche', lg, { commune: state.communeNom! })}`,
+    { reply_markup: kb }
+  )
+})
+
+// Permet de sélectionner un marché au clic pour la soumission
+bot.callbackQuery(/^submit_marche_(.+)$/, async (ctx) => {
+  const marcheId = ctx.callbackQuery.data.replace('submit_marche_', '')
+  await ctx.answerCallbackQuery()
+  const lg = await getUserLangue(ctx.from.id.toString())
+
+  const userId = ctx.from.id.toString()
+  const state = soumissions.get(userId)
+  if (!state || state.step !== 'marche') {
+    return ctx.reply(lg === 'FR' ? 'Session expirée. Utilisez /soumettre.' : 'Sesyon ekspire. Itilize /soumettre.')
+  }
+
+  const marche = await db.marche.findUnique({ where: { id: marcheId } })
+  if (!marche || marche.communeId !== state.communeId) {
+    return ctx.reply(t('bot.soumettre.marche_not_found', lg))
+  }
+
+  state.marcheId = marche.id
+  state.marcheNom = marche.nom
+  state.step = 'prix_gros'
+
+  return ctx.reply(t('bot.soumettre.ask_prix_gros', lg))
 })
 
 bot.callbackQuery('menu_lang', async (ctx) => {
@@ -751,11 +1003,49 @@ async function chercherPrix(produitNom: string, communeNom: string) {
 
 function mainMenu(lg: Langue): InlineKeyboard {
   const kb = new InlineKeyboard()
-  kb.text(t('bot.menu.search', lg), 'menu_search')
-  kb.text(t('bot.menu.by_commune', lg), 'menu_commune')
-  kb.row()
-  kb.text(t('bot.menu.submit_price', lg), 'menu_submit')
+  // Un bouton par ligne pour bien voir les libellés (mobile-first)
+  kb.text(t('bot.menu.search', lg), 'menu_search').row()
+  kb.text(t('bot.menu.by_commune', lg), 'menu_commune').row()
+  kb.text(t('bot.menu.submit_price', lg), 'menu_submit').row()
   kb.text(t('bot.menu.change_language', lg), 'menu_lang')
+  return kb
+}
+
+/**
+ * Génère un clavier inline paginé pour une liste de produits.
+ * Affiche 8 produits par page + boutons de navigation.
+ */
+function productsKeyboard(
+  produits: Array<{ id: string; nom: string }>,
+  page: number,
+  lg: Langue
+): InlineKeyboard {
+  const kb = new InlineKeyboard()
+  const perPage = 8
+  const start = page * perPage
+  const end = start + perPage
+  const pageItems = produits.slice(start, end)
+  const totalPages = Math.ceil(produits.length / perPage)
+
+  // Produits
+  for (const p of pageItems) {
+    kb.text(p.nom, `produit_${p.id}`).row()
+  }
+
+  // Pagination
+  if (totalPages > 1) {
+    if (page > 0) {
+      kb.text(lg === 'FR' ? '⬅️ Précédent' : '⬅️ Anvan', `produit_page_${page - 1}`)
+    }
+    kb.text(`${page + 1}/${totalPages}`, 'noop')
+    if (page < totalPages - 1) {
+      kb.text(lg === 'FR' ? 'Suivant ➡️' : 'Pwochen ➡️', `produit_page_${page + 1}`)
+    }
+    kb.row()
+  }
+
+  // Retour menu
+  kb.text('🏠', 'menu_home')
   return kb
 }
 
