@@ -780,18 +780,33 @@ function formatDateShort(d: Date, lg: Langue): string {
 // Lancement du bot
 // ============================================================
 
+// Log toutes les erreurs grammY (pas de crash silencieux)
+bot.catch((err) => {
+  console.error('[bot] Erreur grammY :', err.error)
+})
+
+// Garde le process en vie même en cas d'erreur non gérée
+process.on('uncaughtException', (err) => {
+  console.error('[bot] UncaughtException :', err)
+})
+process.on('unhandledRejection', (err) => {
+  console.error('[bot] UnhandledRejection :', err)
+})
+
 async function main() {
   console.log('[bot] Démarrage du bot PrixMarket...')
+  console.log('[bot] Timestamp:', new Date().toISOString())
   await bot.start({
     onStart: (botInfo) => {
       console.log(`[bot] Connecté en tant que @${botInfo.username}`)
+      console.log('[bot] Bot prêt à recevoir des messages. En attente...')
     },
   })
 }
 
 main().catch((err) => {
   console.error('[bot] Erreur fatale :', err)
-  process.exit(1)
+  // Ne pas process.exit immédiatement — laisser le log visible
 })
 
 export { bot }
