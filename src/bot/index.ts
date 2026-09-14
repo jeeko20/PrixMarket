@@ -796,6 +796,44 @@ process.on('unhandledRejection', (err) => {
 async function main() {
   console.log('[bot] Démarrage du bot PrixMarket...')
   console.log('[bot] Timestamp:', new Date().toISOString())
+
+  // Enregistre le menu de commandes (le bouton "/" à côté du champ texte)
+  // Commandes par défaut (français) + variante créole (langue="ht")
+  try {
+    // Commandes par défaut — français
+    await bot.api.setMyCommands([
+      { command: 'start', description: 'Démarrer / message de bienvenue' },
+      { command: 'prix', description: 'Consulter un prix (ex: /prix riz delmas)' },
+      { command: 'soumettre', description: 'Soumettre un prix (agents uniquement)' },
+      { command: 'langue', description: 'Changer de langue (Français / Créole)' },
+      { command: 'help', description: 'Afficher l\'aide' },
+    ])
+    console.log('[bot] Menu de commandes par défaut enregistré')
+
+    // Variante créole pour les utilisateurs dont Telegram est en créole haïtien
+    await bot.api.setMyCommands(
+      [
+        { command: 'start', description: 'Kòmanse / mesaj byenveni' },
+        { command: 'prix', description: 'Gade yon pri (egzanp: /prix riz delmas)' },
+        { command: 'soumettre', description: 'Voye yon pri (sèlman pou ajan)' },
+        { command: 'langue', description: 'Chanje lang (Franse / Kreyòl)' },
+        { command: 'help', description: 'Montre èd la' },
+      ],
+      { language_code: 'ht' }
+    )
+    console.log('[bot] Menu de commandes créole enregistré')
+
+    // Configure aussi le bouton "Menu" (à côté du champ texte sur mobile)
+    await bot.api.setChatMenuButton({
+      menu_button: {
+        type: 'commands',
+      },
+    })
+    console.log('[bot] Bouton Menu configuré pour afficher les commandes')
+  } catch (err) {
+    console.error('[bot] Erreur enregistrement menu :', err)
+  }
+
   await bot.start({
     onStart: (botInfo) => {
       console.log(`[bot] Connecté en tant que @${botInfo.username}`)
