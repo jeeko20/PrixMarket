@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
-import { Users, Trash2, Plus, ShieldCheck, AlertTriangle } from 'lucide-react'
+import { Users, Trash2, Plus, ShieldCheck, AlertTriangle, ShoppingBasket, MapPin, Store } from 'lucide-react'
 
 interface AdminPretRequest {
   telegramId: string
@@ -107,8 +107,132 @@ export function AdminDashboard() {
   // Stats (nombre de prix cette semaine par commune)
   const { data: statsData } = useQuery({
     queryKey: ['admin', 'stats'],
-    queryFn: () => apiCall('/api/v1/admin/stats'),
+    queryFn: () => apiCall('/api/v1/admin/stats', {
+      headers: { 'X-Telegram-Id': adminTelegramId || '' },
+    }),
     enabled: !!adminTelegramId,
+  })
+
+  // === ADMINS ===
+  const [newAdminTg, setNewAdminTg] = useState('')
+  const [newAdminNom, setNewAdminNom] = useState('')
+
+  const { data: adminsData, isLoading: adminsLoading } = useQuery({
+    queryKey: ['admin', 'admins'],
+    queryFn: () => apiCall('/api/v1/admin/admins', {
+      headers: { 'X-Telegram-Id': adminTelegramId || '' },
+    }),
+    enabled: !!adminTelegramId,
+  })
+
+  const addAdminMutation = useMutation({
+    mutationFn: (data: { telegramId: string; nom: string }) =>
+      apiCall('/api/v1/admin/admins', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Telegram-Id': adminTelegramId || '',
+        },
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      toast.success('Admin ajouté avec succès.')
+      setNewAdminTg('')
+      setNewAdminNom('')
+      queryClient.invalidateQueries({ queryKey: ['admin', 'admins'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  const deleteAdminMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiCall(`/api/v1/admin/admins/${id}`, {
+        method: 'DELETE',
+        headers: { 'X-Telegram-Id': adminTelegramId || '' },
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin', 'admins'] })
+      toast.success('Admin supprimé.')
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  // === PRODUITS (gestion) ===
+  const [newProduitNom, setNewProduitNom] = useState('')
+  const [newProduitUnite, setNewProduitUnite] = useState('')
+  const [newProduitCategorie, setNewProduitCategorie] = useState('')
+
+  const { data: produitsData } = useQuery({
+    queryKey: ['admin', 'produits'],
+    queryFn: () => apiCall('/api/v1/admin/produits', {
+      headers: { 'X-Telegram-Id': adminTelegramId || '' },
+    }),
+    enabled: !!adminTelegramId,
+  })
+
+  const addProduitMutation = useMutation({
+    mutationFn: (data: { nom: string; unite: string; categorie?: string }) =>
+      apiCall('/api/v1/admin/produits', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Telegram-Id': adminTelegramId || '',
+        },
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      toast.success('Produit ajouté avec succès.')
+      setNewProduitNom('')
+      setNewProduitUnite('')
+      setNewProduitCategorie('')
+      queryClient.invalidateQueries({ queryKey: ['admin', 'produits'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  // === COMMUNES (gestion) ===
+  const [newCommuneNom, setNewCommuneNom] = useState('')
+
+  const addCommuneMutation = useMutation({
+    mutationFn: (data: { nom: string }) =>
+      apiCall('/api/v1/admin/communes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Telegram-Id': adminTelegramId || '',
+        },
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      toast.success('Commune ajoutée avec succès.')
+      setNewCommuneNom('')
+      queryClient.invalidateQueries({ queryKey: ['communes'] })
+      queryClient.invalidateQueries({ queryKey: ['admin', 'communes'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
+  })
+
+  // === MARCHÉS (gestion) ===
+  const [newMarcheNom, setNewMarcheNom] = useState('')
+  const [newMarcheCommune, setNewMarcheCommune] = useState('')
+
+  const addMarcheMutation = useMutation({
+    mutationFn: (data: { nom: string; communeId: string }) =>
+      apiCall('/api/v1/admin/marches', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Telegram-Id': adminTelegramId || '',
+        },
+        body: JSON.stringify(data),
+      }),
+    onSuccess: () => {
+      toast.success('Marché ajouté avec succès.')
+      setNewMarcheNom('')
+      setNewMarcheCommune('')
+      queryClient.invalidateQueries({ queryKey: ['admin', 'marches'] })
+    },
+    onError: (e: Error) => toast.error(e.message),
   })
 
   // Mutation : ajouter agent
@@ -455,6 +579,248 @@ export function AdminDashboard() {
         >
           Changer d'identifiant admin
         </Button>
+      </div>
+
+      {/* ADMINS — Gestion des administrateurs */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShieldCheck className="h-5 w-5 text-terra" />
+            Administrateurs
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Les administrateurs peuvent gérer les agents, produits, communes, marchés et modérer les prix. Tout ce qui est modifié ici est <strong>immédiatement réflété dans le bot Telegram</strong> (pas de cache).
+          </p>
+
+          {/* Formulaire d'ajout admin */}
+          <div className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-3">
+            <div className="text-sm font-medium flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Ajouter un administrateur
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-tg" className="text-xs">Telegram ID</Label>
+                <Input
+                  id="admin-tg"
+                  value={newAdminTg}
+                  onChange={(e) => setNewAdminTg(e.target.value)}
+                  placeholder="123456789"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="admin-nom" className="text-xs">Nom</Label>
+                <Input
+                  id="admin-nom"
+                  value={newAdminNom}
+                  onChange={(e) => setNewAdminNom(e.target.value)}
+                  placeholder="Marie Pierre"
+                />
+              </div>
+            </div>
+            <Button
+              onClick={() => addAdminMutation.mutate({
+                telegramId: newAdminTg.trim(),
+                nom: newAdminNom.trim(),
+              })}
+              disabled={addAdminMutation.isPending || !newAdminTg || !newAdminNom}
+              className="bg-terra text-terra-foreground hover:bg-terra/90"
+              size="sm"
+            >
+              {addAdminMutation.isPending ? 'Ajout...' : 'Ajouter admin'}
+            </Button>
+          </div>
+
+          {/* Liste des admins */}
+          {adminsLoading ? (
+            <div className="text-sm text-muted-foreground">Chargement...</div>
+          ) : (adminsData?.data ?? []).length === 0 ? (
+            <div className="text-sm text-muted-foreground">Aucun admin.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nom</TableHead>
+                    <TableHead>Telegram ID</TableHead>
+                    <TableHead>Créé le</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(adminsData?.data ?? []).map((a: any) => (
+                    <TableRow key={a.id}>
+                      <TableCell className="font-medium">{a.nom}</TableCell>
+                      <TableCell className="text-muted-foreground font-mono text-xs">{a.telegramId}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(a.createdAt).toLocaleDateString('fr-FR')}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            if (a.telegramId === adminTelegramId) {
+                              toast.error('Vous ne pouvez pas vous supprimer vous-même.')
+                              return
+                            }
+                            if (confirm(`Supprimer l'admin ${a.nom} ?`)) {
+                              deleteAdminMutation.mutate(a.id)
+                            }
+                          }}
+                          disabled={deleteAdminMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* PRODUITS — Gestion des produits suivis */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ShoppingBasket className="h-5 w-5 text-terra" />
+            Produits suivis
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg border border-border/60 bg-muted/30 p-4 space-y-3">
+            <div className="text-sm font-medium flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Ajouter un produit
+            </div>
+            <div className="grid sm:grid-cols-3 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="prod-nom" className="text-xs">Nom</Label>
+                <Input
+                  id="prod-nom"
+                  value={newProduitNom}
+                  onChange={(e) => setNewProduitNom(e.target.value)}
+                  placeholder="ex: Mais"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="prod-unite" className="text-xs">Unité</Label>
+                <Input
+                  id="prod-unite"
+                  value={newProduitUnite}
+                  onChange={(e) => setNewProduitUnite(e.target.value)}
+                  placeholder="ex: marmite"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="prod-cat" className="text-xs">Catégorie</Label>
+                <Input
+                  id="prod-cat"
+                  value={newProduitCategorie}
+                  onChange={(e) => setNewProduitCategorie(e.target.value)}
+                  placeholder="ex: Cereales"
+                />
+              </div>
+            </div>
+            <Button
+              onClick={() => addProduitMutation.mutate({
+                nom: newProduitNom.trim(),
+                unite: newProduitUnite.trim(),
+                categorie: newProduitCategorie.trim() || undefined,
+              })}
+              disabled={addProduitMutation.isPending || !newProduitNom || !newProduitUnite}
+              className="bg-terra text-terra-foreground hover:bg-terra/90"
+              size="sm"
+            >
+              {addProduitMutation.isPending ? 'Ajout...' : 'Ajouter produit'}
+            </Button>
+          </div>
+
+          <div className="text-xs text-muted-foreground">
+            {(produitsData?.data ?? []).length} produits suivis
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* COMMUNES & MARCHÉS */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <MapPin className="h-5 w-5 text-terra" />
+              Communes
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+              <Input
+                value={newCommuneNom}
+                onChange={(e) => setNewCommuneNom(e.target.value)}
+                placeholder="Nom de la nouvelle commune"
+              />
+              <Button
+                onClick={() => addCommuneMutation.mutate({ nom: newCommuneNom.trim() })}
+                disabled={addCommuneMutation.isPending || !newCommuneNom}
+                className="w-full bg-terra text-terra-foreground hover:bg-terra/90"
+                size="sm"
+              >
+                Ajouter commune
+              </Button>
+            </div>
+            <ul className="text-sm space-y-1">
+              {(communesData?.data ?? []).map((c: any) => (
+                <li key={c.id} className="flex justify-between">
+                  <span>{c.nom}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {c.marches} marché{c.marches > 1 ? 's' : ''}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Store className="h-5 w-5 text-terra" />
+              Marchés
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-3 space-y-2">
+              <Input
+                value={newMarcheNom}
+                onChange={(e) => setNewMarcheNom(e.target.value)}
+                placeholder="Nom du nouveau marché"
+              />
+              <Select value={newMarcheCommune} onValueChange={setNewMarcheCommune}>
+                <SelectTrigger><SelectValue placeholder="Commune..." /></SelectTrigger>
+                <SelectContent>
+                  {(communesData?.data ?? []).map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>{c.nom}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                onClick={() => addMarcheMutation.mutate({
+                  nom: newMarcheNom.trim(),
+                  communeId: newMarcheCommune,
+                })}
+                disabled={addMarcheMutation.isPending || !newMarcheNom || !newMarcheCommune}
+                className="w-full bg-terra text-terra-foreground hover:bg-terra/90"
+                size="sm"
+              >
+                Ajouter marché
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
