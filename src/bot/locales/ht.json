@@ -1,0 +1,84 @@
+{
+  "bot": {
+    "welcome": {
+      "title": "Byenveni nan PrixMarket !",
+      "description": "Gade pri yo sou mache Ayiti. Done yo ap jwenn pa ajan lokal yo sou tèren an.",
+      "commands_title": "Lòd ki disponib yo :",
+      "commands_list": [
+        "/prix <pwodui> <komin> — Gade yon pri (egzanp : /prix riz delmas)",
+        "/soumettre — Voye yon pri (sèlman pou ajan)",
+        "/langue — Chanje lang (Franse / Kreyòl)",
+        "/help — Montre èd sa a"
+      ],
+      "menu_title": " Oswa ou ka itilize meni ki anba a :"
+    },
+    "menu": {
+      "search": "🔍 Chèche yon pri",
+      "by_commune": "📍 Wè pa komin",
+      "submit_price": "📝 Voye yon pri",
+      "change_language": "🌐 Chanje lang"
+    },
+    "lang": {
+      "prompt": "Chwazi lang ou :",
+      "fr": "🇫🇷 Franse",
+      "ht": "🇭🇹 Kreyòl",
+      "updated_fr": "Lang chanje an Franse.",
+      "updated_ht": "Lang chanje an Kreyòl."
+    },
+    "prix": {
+      "usage": "Kijan pou w itilize : /prix <pwodui> [komin]\nEgzanp : /prix riz delmas",
+      "not_found": "Pa gen pri pou « {produit} ».",
+      "not_found_commune": "Pa gen pri pou « {produit} » nan « {commune} ».",
+      "result_title": "🍚 {produit} — {commune}",
+      "result_gros": "Gro : {montant}",
+      "result_detail": "Detay : {montant}",
+      "updated": "Mete ajou : {time}",
+      "result_marche": "Mache : {marche}"
+    },
+    "soumettre": {
+      "not_registered": "Ou pa anrejistre kòm yon ajan. kontakte yon administratè.",
+      "inactive": "Konpt ajan ou a dezaktive. kontakte yon administratè.",
+      "ask_produit": "Ki pwodui ou vle voye ? (Ekri non li, oswa /annuler pou w anile)",
+      "produit_not_found": "Pa jwenen pwodui sa a. Verifye ekriti li a oswa chwazi yon lòt pwodui.",
+      "produit_selected": "Pwodui chwazi : {nom}.",
+      "ask_marche": "Ki mache ? (Komin ou a : {commune})",
+      "marche_not_found": "Pa jwenen mache sa a nan komin ou a.",
+      "marche_selected": "Mache : {nom}.",
+      "ask_prix_gros": "Pri an gro (an HTG) ? (oswa 'na' si pa gen)",
+      "ask_prix_detail": "Pri an detay (an HTG) ? (oswa 'na' si pa gen)",
+      "invalid_montant": "Montan pa valab. Mete yon chif pozitif, oswa 'na'.",
+      "summary_title": "Rezime :",
+      "summary_produit": "Pwodui : {nom}",
+      "summary_marche": "Mache : {nom}",
+      "summary_gros": "Gro : {montant}",
+      "summary_detail": "Detay : {montant}",
+      "confirm": "Konfime ? (wi/non)",
+      "saved": "Pri anrejistre avèk siksè ! Mèsi pou kontribisyon ou.",
+      "cancelled": "Voye pri a anile.",
+      "need_both": "Ou dwe bay omwen yon pri (gro oswa detay)."
+    },
+    "admin": {
+      "not_admin": "Lòd sa a sèlman pou administratè.",
+      "add_agent_usage": "Kijan pou w itilize : /ajouter_agent <telegramId> <non> <komin>",
+      "agent_added": "Ajan ajoute : {nom} ({telegramId}) — Komin : {commune}",
+      "agent_exists": "Yon ajan ak telegramId sa a egziste deja.",
+      "commune_not_found": "Pa jwenen komin sa a. Komin ki disponib yo : {communes}",
+      "disable_agent_usage": "Kijan pou w itilize : /desactiver_agent <telegramId>",
+      "agent_disabled": "Ajan {nom} dezaktive.",
+      "agent_enabled": "Ajan {nom} aktive.",
+      "agent_not_found": "Pa jwenen ajan.",
+      "stats_title": "📊 Statistik pou semèn sa a",
+      "stats_total": "Total : {count} pri yo jwenn",
+      "stats_by_commune": "Pa komin :",
+      "stats_none": "Pa gen pri yo jwenn semèn sa a."
+    },
+    "ai": {
+      "unavailable": "Sèvis IA pa disponib kounye a. Itilize lòd /prix, /soumettre oswa /help.",
+      "system_prompt": "Ou se yon asistan ayisyen ki reponn kesyon sou pri mache. Ou dwe sèlman itilize done mwen bay ou — pa JAMÈ envante yon pri. Si itilizatè a mande yon bagay ki pa gen pri, voye l nan /prix, /soumettre oswa /help. Reponn an {langue}."
+    },
+    "errors": {
+      "unknown": "Yon erè rive. Eseye ankò.",
+      "api_unreachable": "Sèvis pa disponib pou kounye a. Eseye ankò pita."
+    }
+  }
+}

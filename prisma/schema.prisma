@@ -1,0 +1,99 @@
+// PrixMarket — Schéma de données MVP
+// Communes, Marchés, Produits, Agents, Prix (historique), Admins, Préférences utilisateur.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// === Référentiels ===
+
+model Commune {
+  id        String   @id @default(cuid())
+  nom       String   @unique
+  createdAt DateTime @default(now())
+
+  marches Marche[]
+  agents Agent[]
+}
+
+model Marche {
+  id        String   @id @default(cuid())
+  nom       String
+  communeId String
+  createdAt DateTime @default(now())
+
+  commune Commune @relation(fields: [communeId], references: [id], onDelete: Cascade)
+  prix    Prix[]
+
+  @@index([communeId])
+}
+
+model Produit {
+  id        String   @id @default(cuid())
+  nom       String   @unique
+  unite     String
+  categorie String?
+
+  prix Prix[]
+
+  @@index([nom])
+}
+
+// === Acteurs ===
+
+model Agent {
+  id          String   @id @default(cuid())
+  telegramId  String   @unique
+  nom         String
+  communeId   String
+  actif       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  commune Commune @relation(fields: [communeId], references: [id])
+  prix    Prix[]
+
+  @@index([communeId])
+}
+
+model Admin {
+  id         String   @id @default(cuid())
+  telegramId String   @unique
+  nom        String
+  createdAt  DateTime @default(now())
+}
+
+model UserPreference {
+  id         String   @id @default(cuid())
+  telegramId String   @unique
+  langue     String   @default("HT") // 'FR' | 'HT'
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+// === Données métier ===
+
+model Prix {
+  id          String   @id @default(cuid())
+  produitId   String
+  marcheId    String
+  agentId     String
+  type        String   // 'GROS' | 'DETAIL'
+  montant     Float
+  devise      String   @default("HTG")
+  dateCollecte DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  produit Produit @relation(fields: [produitId], references: [id], onDelete: Cascade)
+  marche  Marche  @relation(fields: [marcheId], references: [id], onDelete: Cascade)
+  agent   Agent   @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([produitId, marcheId, type, dateCollecte])
+  @@index([produitId, marcheId])
+  @@index([marcheId])
+  @@index([agentId])
+}

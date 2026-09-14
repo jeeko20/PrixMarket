@@ -1,0 +1,84 @@
+{
+  "bot": {
+    "welcome": {
+      "title": "Bienvenue sur PrixMarket !",
+      "description": "Consultez les prix des marchés en Haïti. Données collectées par des agents locaux sur le terrain.",
+      "commands_title": "Commandes disponibles :",
+      "commands_list": [
+        "/prix <produit> <commune> — Consulter un prix (ex: /prix riz delmas)",
+        "/soumettre — Soumettre un prix (agents uniquement)",
+        "/langue — Changer de langue (Français / Créole)",
+        "/help — Afficher cette aide"
+      ],
+      "menu_title": "Ou utilisez le menu ci-dessous :"
+    },
+    "menu": {
+      "search": "🔍 Chercher un prix",
+      "by_commune": "📍 Voir par commune",
+      "submit_price": "📝 Soumettre un prix",
+      "change_language": "🌐 Changer de langue"
+    },
+    "lang": {
+      "prompt": "Choisissez votre langue :",
+      "fr": "🇫🇷 Français",
+      "ht": "🇭🇹 Kreyòl",
+      "updated_fr": "Langue changée en Français.",
+      "updated_ht": "Lang changé an Kreyòl."
+    },
+    "prix": {
+      "usage": "Usage : /prix <produit> [commune]\nExemple : /prix riz delmas",
+      "not_found": "Aucun prix trouvé pour « {produit} ».",
+      "not_found_commune": "Aucun prix trouvé pour « {produit} » à « {commune} ».",
+      "result_title": "🍚 {produit} — {commune}",
+      "result_gros": "Gros : {montant}",
+      "result_detail": "Détail : {montant}",
+      "updated": "Mis à jour : {time}",
+      "result_marche": "Marché : {marche}"
+    },
+    "soumettre": {
+      "not_registered": "Vous n'êtes pas enregistré comme agent. Contactez un administrateur.",
+      "inactive": "Votre compte d'agent a été désactivé. Contactez un administrateur.",
+      "ask_produit": "Quel produit souhaitez-vous soumettre ? (Tapez le nom, ou /annuler pour abandonner)",
+      "produit_not_found": "Produit introuvable. Vérifiez l'orthographe ou choisissez un produit existant.",
+      "produit_selected": "Produit sélectionné : {nom}.",
+      "ask_marche": "Quel marché ? (Votre commune : {commune})",
+      "marche_not_found": "Marché introuvable dans votre commune.",
+      "marche_selected": "Marché : {nom}.",
+      "ask_prix_gros": "Prix en gros (en HTG) ? (ou 'na' si non disponible)",
+      "ask_prix_detail": "Prix au détail (en HTG) ? (ou 'na' si non disponible)",
+      "invalid_montant": "Montant invalide. Entrez un nombre positif, ou 'na'.",
+      "summary_title": "Récapitulatif :",
+      "summary_produit": "Produit : {nom}",
+      "summary_marche": "Marché : {nom}",
+      "summary_gros": "Gros : {montant}",
+      "summary_detail": "Détail : {montant}",
+      "confirm": "Confirmer ? (oui/non)",
+      "saved": "Prix enregistré avec succès ! Merci pour votre contribution.",
+      "cancelled": "Soumission annulée.",
+      "need_both": "Vous devez fournir au moins un prix (gros ou détail)."
+    },
+    "admin": {
+      "not_admin": "Cette commande est réservée aux administrateurs.",
+      "add_agent_usage": "Usage : /ajouter_agent <telegramId> <nom> <commune>",
+      "agent_added": "Agent ajouté : {nom} ({telegramId}) — Commune : {commune}",
+      "agent_exists": "Un agent avec ce telegramId existe déjà.",
+      "commune_not_found": "Commune introuvable. Communes disponibles : {communes}",
+      "disable_agent_usage": "Usage : /desactiver_agent <telegramId>",
+      "agent_disabled": "Agent {nom} désactivé.",
+      "agent_enabled": "Agent {nom} activé.",
+      "agent_not_found": "Agent introuvable.",
+      "stats_title": "📊 Statistiques de cette semaine",
+      "stats_total": "Total : {count} prix collectés",
+      "stats_by_commune": "Par commune :",
+      "stats_none": "Aucun prix collecté cette semaine."
+    },
+    "ai": {
+      "unavailable": "Le service IA est actuellement indisponible. Utilisez les commandes /prix, /soumettre ou /help.",
+      "system_prompt": "Tu es un assistant haïtien qui répond à des questions sur les prix de marché. Tu dois uniquement utiliser les données que je te fournis — ne JAMAIS inventer un prix. Si l'utilisateur demande autre chose que des prix, redirige-le vers /prix, /soumettre ou /help. Réponds en {langue}."
+    },
+    "errors": {
+      "unknown": "Une erreur est survenue. Veuillez réessayer.",
+      "api_unreachable": "Service temporairement indisponible. Réessayez plus tard."
+    }
+  }
+}
