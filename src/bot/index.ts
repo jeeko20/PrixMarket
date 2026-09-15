@@ -170,37 +170,49 @@ bot.command('prix', async (ctx) => {
   const first = prix[0]
   const communeNomFinal = first.marche.commune.nom
 
-  let msg = t('bot.prix.result_title', lg, {
-    produit: produit.nom,
-    commune: communeNomFinal,
-  }) + '\n'
-
-  // Groupe par marché
-  const byMarche = new Map<string, { nom: string; gros?: number; detail?: number; date?: Date }>()
+  // Groupe par marché (pour affichage tableau)
+  const byMarcheMap = new Map<
+    string,
+    {
+      nom: string
+      commune: string
+      gros?: number
+      detail?: number
+      date?: Date
+    }
+  >()
   for (const p of vue.values()) {
     const key = p.marcheId
-    if (!byMarche.has(key)) {
-      byMarche.set(key, { nom: p.marche.nom, date: p.dateCollecte })
+    if (!byMarcheMap.has(key)) {
+      byMarcheMap.set(key, {
+        nom: p.marche.nom,
+        commune: p.marche.commune.nom,
+        date: p.dateCollecte,
+      })
     }
-    const e = byMarche.get(key)!
+    const e = byMarcheMap.get(key)!
     if (p.type === 'GROS' && e.gros === undefined) e.gros = p.montant
     if (p.type === 'DETAIL' && e.detail === undefined) e.detail = p.montant
   }
 
-  for (const [marcheId, info] of byMarche) {
-    msg += `\n${t('bot.prix.result_marche', lg, { marche: info.nom })}\n`
-    if (info.gros !== undefined) {
-      msg += t('bot.prix.result_gros', lg, { montant: `${info.gros} HTG` }) + '\n'
-    }
-    if (info.detail !== undefined) {
-      msg += t('bot.prix.result_detail', lg, { montant: `${info.detail} HTG` }) + '\n'
-    }
-    if (info.date) {
-      msg += t('bot.prix.updated', lg, { time: formatDateShort(info.date, lg) }) + '\n'
-    }
-  }
+  const byMarche = Array.from(byMarcheMap.values())
 
-  await ctx.reply(msg)
+  // Récupère le nom de l'agent qui a collecté (le plus récent)
+  const lastPrix = prix[0]
+  const agent = lastPrix
+    ? await db.agent.findUnique({ where: { id: lastPrix.agentId } })
+    : undefined
+
+  // Génère le message formaté avec tableaux séparés GROS / DÉTAIL
+  const msg = formatPrixMessage(
+    produit.nom,
+    communeNomFinal,
+    byMarche,
+    lg,
+    agent?.nom
+  )
+
+  await ctx.reply(msg, { parse_mode: 'HTML' })
 })
 
 // ============================================================
@@ -606,8 +618,8 @@ bot.callbackQuery(/^produit_(.+)$/, async (ctx) => {
     if (!vue.has(key)) vue.set(key, p)
   }
 
-  // Groupe par marché
-  const byMarche = new Map<
+  // Groupe par marché (pour affichage tableau)
+  const byMarcheMap = new Map<
     string,
     {
       nom: string
@@ -620,44 +632,40 @@ bot.callbackQuery(/^produit_(.+)$/, async (ctx) => {
   >()
   for (const p of vue.values()) {
     const key = p.marcheId
-    if (!byMarche.has(key)) {
-      byMarche.set(key, {
+    if (!byMarcheMap.has(key)) {
+      byMarcheMap.set(key, {
         nom: p.marche.nom,
         commune: p.marche.commune.nom,
         communeId: p.marche.commune.id,
         date: p.dateCollecte,
       })
     }
-    const e = byMarche.get(key)!
+    const e = byMarcheMap.get(key)!
     if (p.type === 'GROS' && e.gros === undefined) e.gros = p.montant
     if (p.type === 'DETAIL' && e.detail === undefined) e.detail = p.montant
   }
 
-  // Construit le message
-  const lines: string[] = [
-    `🍚 ${produit.nom}`,
-    '',
-  ]
+  // Récupère l'agent qui a collecté (le plus récent)
+  const lastPrix = prix[0]
+  const agent = lastPrix
+    ? await db.agent.findUnique({ where: { id: lastPrix.agentId } })
+    : undefined
 
-  for (const [, info] of byMarche) {
-    lines.push(`📍 ${info.nom} — ${info.commune}`)
-    if (info.gros !== undefined) {
-      lines.push(`  ${lg === 'FR' ? 'Gros' : 'Gro'} : ${info.gros} HTG`)
-    }
-    if (info.detail !== undefined) {
-      lines.push(`  ${lg === 'FR' ? 'Détail' : 'Detay'} : ${info.detail} HTG`)
-    }
-    if (info.date) {
-      lines.push(`  🕐 ${formatDateShort(info.date, lg)}`)
-    }
-    lines.push('')
-  }
+  // Construit le message avec tableaux séparés GROS / DÉTAIL
+  const communeNomFinal = Array.from(byMarcheMap.values())[0]?.commune ?? ''
+  const msg = formatPrixMessage(
+    produit.nom,
+    communeNomFinal,
+    Array.from(byMarcheMap.values()),
+    lg,
+    agent?.nom
+  )
 
   const kb = new InlineKeyboard()
     .text(lg === 'FR' ? '← Autres produits' : '← Lòt pwodui', 'menu_search').row()
     .text('🏠', 'menu_home')
 
-  return ctx.reply(lines.join('\n'), { reply_markup: kb })
+  return ctx.reply(msg, { reply_markup: kb, parse_mode: 'HTML' })
 })
 
 bot.callbackQuery('menu_home', async (ctx) => {
@@ -732,18 +740,63 @@ bot.callbackQuery(/^commune_/, async (ctx) => {
     )
   }
 
-  const lines: string[] = [`📍 ${commune.nom} — ${lg === 'FR' ? 'derniers prix' : 'dènye pri yo'}`, '']
+  // Groupe par produit, puis par marché
+  const byProduitMap = new Map<
+    string,
+    {
+      nom: string
+      marches: Map<
+        string,
+        { nom: string; gros?: number; detail?: number; date?: Date }
+      >
+    }
+  >()
+
   for (const p of vue.values()) {
-    lines.push(
-      `• ${p.produit.nom} (${p.marche.nom}) — ${p.type === 'GROS' ? (lg === 'FR' ? 'Gros' : 'Gro') : (lg === 'FR' ? 'Détail' : 'Detay')}: ${p.montant} HTG`
-    )
+    if (!byProduitMap.has(p.produitId)) {
+      byProduitMap.set(p.produitId, {
+        nom: p.produit.nom,
+        marches: new Map(),
+      })
+    }
+    const entry = byProduitMap.get(p.produitId)!
+    if (!entry.marches.has(p.marcheId)) {
+      entry.marches.set(p.marcheId, {
+        nom: p.marche.nom,
+        date: p.dateCollecte,
+      })
+    }
+    const m = entry.marches.get(p.marcheId)!
+    if (p.type === 'GROS' && m.gros === undefined) m.gros = p.montant
+    if (p.type === 'DETAIL' && m.detail === undefined) m.detail = p.montant
+  }
+
+  // Construit le message : pour chaque produit, un mini-tableau GROS + DÉTAIL
+  const isFR = lg === 'FR'
+  const sections: string[] = []
+  sections.push(`📍 <b>${escapeHtml(commune.nom.toUpperCase())}</b> — ${isFR ? 'derniers prix' : 'dènye pri yo'}`)
+  sections.push('')
+
+  for (const [, entry] of byProduitMap) {
+    const byMarche = Array.from(entry.marches.values()).map((m) => ({
+      nom: m.nom,
+      commune: commune.nom,
+      gros: m.gros,
+      detail: m.detail,
+      date: m.date,
+    }))
+    sections.push(formatPrixMessage(entry.nom, commune.nom, byMarche, lg))
+    sections.push('')
   }
 
   const kb = new InlineKeyboard()
     .text(lg === 'FR' ? '← Autres communes' : '← Lòt komin', 'menu_commune').row()
     .text('🏠', 'menu_home')
 
-  return ctx.reply(lines.join('\n'), { reply_markup: kb })
+  return ctx.reply(sections.join('\n').slice(0, 4000), {
+    reply_markup: kb,
+    parse_mode: 'HTML',
+  })
 })
 
 bot.callbackQuery('menu_submit', async (ctx) => {
@@ -1064,6 +1117,150 @@ function formatDateShort(d: Date, lg: Langue): string {
   if (h < 24) return lg === 'FR' ? `il y a ${h}h` : `${h}è depi`
   const jours = Math.floor(h / 24)
   return lg === 'FR' ? `il y a ${jours}j` : `${jours} jou depi`
+}
+
+/**
+ * Échappe le HTML pour Telegram (parse_mode HTML).
+ */
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
+
+/**
+ * Tronque ou pad une chaîne à largeur fixe (pour alignement monospace).
+ */
+function pad(s: string, len: number): string {
+  const str = s.length > len ? s.slice(0, len - 1) + '…' : s
+  return str + ' '.repeat(Math.max(0, len - str.length))
+}
+
+/**
+ * Format d'un montant en HTG.
+ */
+function fmtMontant(n: number | undefined): string {
+  if (n === undefined || n === null) return '—'
+  return new Intl.NumberFormat('fr-FR').format(n) + ' HTG'
+}
+
+/**
+ * Construit un "tableau" ASCII joliment formaté pour Telegram (HTML <pre>).
+ * Chaque ligne est une entrée avec les colonnes fournies.
+ */
+function buildTable(
+  headers: string[],
+  rows: string[][],
+  emojiHeaders?: string[]
+): string {
+  // Calcule la largeur de chaque colonne
+  const colWidths = headers.map((h, i) => {
+    let w = h.length
+    for (const row of rows) {
+      if (row[i] && row[i].length > w) w = row[i].length
+    }
+    return Math.min(w + 2, 22) // marge de 2 espaces, max 22
+  })
+
+  // Bordures
+  const top = '┌' + colWidths.map((w) => '─'.repeat(w + 2)).join('┬') + '┐'
+  const sep = '├' + colWidths.map((w) => '─'.repeat(w + 2)).join('┼') + '┤'
+  const bot = '└' + colWidths.map((w) => '─'.repeat(w + 2)).join('┴') + '┘'
+
+  // En-tête (avec emoji si fourni)
+  const headerRow =
+    '│ ' +
+    headers
+      .map((h, i) => {
+        const prefix = emojiHeaders && emojiHeaders[i] ? emojiHeaders[i] + ' ' : ''
+        return pad(prefix + h, colWidths[i])
+      })
+      .join(' │ ') +
+    ' │'
+
+  // Lignes
+  const bodyRows = rows.map(
+    (row) => '│ ' + row.map((c, i) => pad(c, colWidths[i])).join(' │ ') + ' │'
+  )
+
+  return [top, headerRow, sep, ...bodyRows, bot].join('\n')
+}
+
+/**
+ * Génère un message joliment formaté pour un produit et ses prix par marché.
+ * Sépare les prix en gros et au détail dans des tableaux distincts.
+ */
+function formatPrixMessage(
+  produitNom: string,
+  communeNom: string,
+  byMarche: Array<{
+    nom: string
+    commune: string
+    gros?: number
+    detail?: number
+    date?: Date
+  }>,
+  lg: Langue,
+  agentNom?: string
+): string {
+  const isFR = lg === 'FR'
+  const lines: string[] = []
+
+  // En-tête stylisé
+  lines.push('📊 ════════════════════════════════')
+  lines.push(`🍚 <b>${escapeHtml(produitNom.toUpperCase())}</b>`)
+  lines.push(`📍 ${escapeHtml(communeNom)}`)
+  lines.push('════════════════════════════════')
+  lines.push('')
+
+  const hasGros = byMarche.some((m) => m.gros !== undefined)
+  const hasDetail = byMarche.some((m) => m.detail !== undefined)
+
+  // Section GROS
+  if (hasGros) {
+    const rows = byMarche
+      .filter((m) => m.gros !== undefined)
+      .map((m) => [m.nom, fmtMontant(m.gros)])
+    lines.push(`🔴 <b>${isFR ? 'PRIX EN GROS' : 'PRI AN GRO'}</b>`)
+    lines.push(
+      '<pre>' +
+        buildTable(
+          [isFR ? 'Marché' : 'Mache', isFR ? 'Prix' : 'Pri'],
+          rows
+        ) +
+        '</pre>'
+    )
+    lines.push('')
+  }
+
+  // Section DÉTAIL
+  if (hasDetail) {
+    const rows = byMarche
+      .filter((m) => m.detail !== undefined)
+      .map((m) => [m.nom, fmtMontant(m.detail)])
+    lines.push(`🟢 <b>${isFR ? 'PRIX AU DÉTAIL' : 'PRI AN DETAY'}</b>`)
+    lines.push(
+      '<pre>' +
+        buildTable(
+          [isFR ? 'Marché' : 'Mache', isFR ? 'Prix' : 'Pri'],
+          rows
+        ) +
+        '</pre>'
+    )
+    lines.push('')
+  }
+
+  // Footer
+  const lastUpdate = byMarche.find((m) => m.date)?.date
+  if (lastUpdate) {
+    lines.push(`🕐 ${isFR ? 'Dernière mise à jour' : 'Dènye mete ajou'} : ${formatDateShort(lastUpdate, lg)}`)
+  }
+  if (agentNom) {
+    lines.push(`👤 ${isFR ? 'Collecté par' : 'Jwenn pa'} : ${escapeHtml(agentNom)}`)
+  }
+
+  return lines.join('\n')
 }
 
 // ============================================================
