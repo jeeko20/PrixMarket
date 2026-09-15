@@ -364,9 +364,12 @@ export function AdminDashboard() {
     )
   }
 
-  const agents = agentsData?.data ?? []
-  const prix = prixData?.data ?? []
+  const agents = Array.isArray(agentsData?.data) ? agentsData.data : []
+  const prix = Array.isArray(prixData?.data) ? prixData.data : []
   const stats = statsData?.data ?? { cetteSemaine: 0, parCommune: [] }
+  const admins = Array.isArray(adminsData?.data) ? adminsData.data : []
+  const adminProduits = Array.isArray(produitsData?.data) ? produitsData.data : []
+  const adminCommunes = Array.isArray(communesData?.data) ? communesData.data : []
 
   return (
     <div className="space-y-8">
@@ -636,7 +639,7 @@ export function AdminDashboard() {
           {/* Liste des admins */}
           {adminsLoading ? (
             <div className="text-sm text-muted-foreground">Chargement...</div>
-          ) : (adminsData?.data ?? []).length === 0 ? (
+          ) : admins.length === 0 ? (
             <div className="text-sm text-muted-foreground">Aucun admin.</div>
           ) : (
             <div className="overflow-x-auto">
@@ -650,7 +653,7 @@ export function AdminDashboard() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(adminsData?.data ?? []).map((a: any) => (
+                  {admins.map((a: any) => (
                     <TableRow key={a.id}>
                       <TableCell className="font-medium">{a.nom}</TableCell>
                       <TableCell className="text-muted-foreground font-mono text-xs">{a.telegramId}</TableCell>
@@ -742,7 +745,7 @@ export function AdminDashboard() {
           </div>
 
           <div className="text-xs text-muted-foreground">
-            {(produitsData?.data ?? []).length} produits suivis
+            {adminProduits.length} produits suivis
           </div>
         </CardContent>
       </Card>
@@ -773,7 +776,7 @@ export function AdminDashboard() {
               </Button>
             </div>
             <ul className="text-sm space-y-1">
-              {(communesData?.data ?? []).map((c: any) => (
+              {adminCommunes.map((c: any) => (
                 <li key={c.id} className="flex justify-between">
                   <span>{c.nom}</span>
                   <span className="text-xs text-muted-foreground">
@@ -802,7 +805,7 @@ export function AdminDashboard() {
               <Select value={newMarcheCommune} onValueChange={setNewMarcheCommune}>
                 <SelectTrigger><SelectValue placeholder="Commune..." /></SelectTrigger>
                 <SelectContent>
-                  {(communesData?.data ?? []).map((c: any) => (
+                  {adminCommunes.map((c: any) => (
                     <SelectItem key={c.id} value={c.id}>{c.nom}</SelectItem>
                   ))}
                 </SelectContent>

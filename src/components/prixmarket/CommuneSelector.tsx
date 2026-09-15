@@ -22,7 +22,10 @@ async function fetchCommunes(): Promise<Commune[]> {
   const res = await fetch('/api/v1/communes')
   if (!res.ok) throw new Error('Erreur lors du chargement des communes')
   const json = await res.json()
-  return json.data ?? []
+  // Defensive: s'assurer qu'on retourne toujours un tableau
+  const data = json?.data
+  if (Array.isArray(data)) return data
+  return []
 }
 
 /**
@@ -48,9 +51,13 @@ export function CommuneSelector({
     )
   }
 
+  // Defensive: TanStack Query peut renvoyer un objet non-tableau dans certains cas
+  // (cache corrompu, réponse serveur inattendue). On s'assure d'avoir un tableau.
+  const communes: Commune[] = Array.isArray(data) ? data : []
+
   return (
     <Select
-      disabled={isLoading || !data?.length}
+      disabled={isLoading || communes.length === 0}
       defaultValue={defaultCommune}
       onValueChange={(value) => {
         router.push(`/commune/${encodeURIComponent(value)}`)
@@ -63,7 +70,7 @@ export function CommuneSelector({
         </div>
       </SelectTrigger>
       <SelectContent>
-        {data?.map((c) => (
+        {communes.map((c) => (
           <SelectItem key={c.id} value={c.nom}>
             <div className="flex items-center justify-between gap-3">
               <span>{c.nom}</span>

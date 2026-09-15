@@ -33,7 +33,8 @@ async function fetchHistorique(produitId: string, marcheId: string): Promise<His
   const res = await fetch(`/api/v1/prix/historique?${params.toString()}`)
   if (!res.ok) throw new Error('Erreur lors du chargement de l\'historique')
   const json = await res.json()
-  return json.data ?? []
+  const data = json?.data
+  return Array.isArray(data) ? data : []
 }
 
 function formatDate(s: string): string {
@@ -64,7 +65,7 @@ export function ProduitChart({ produitId, marcheId, produitNom, marcheNom }: Pro
     )
   }
 
-  if (!data || data.length === 0) {
+  if (!Array.isArray(data) || data.length === 0) {
     return (
       <div className="h-72 flex items-center justify-center text-sm text-muted-foreground">
         Aucun historique disponible pour ce produit sur ce marché.
@@ -72,14 +73,17 @@ export function ProduitChart({ produitId, marcheId, produitNom, marcheNom }: Pro
     )
   }
 
+  // À ce stade data est un tableau non vide
+  const safeData: HistoriquePoint[] = data
+
   // Sépare GROS et DETAIL
-  const gros = data.filter((p) => p.type === 'GROS').map((p) => ({
+  const gros = safeData.filter((p) => p.type === 'GROS').map((p) => ({
     date: formatDate(p.dateCollecte),
     rawDate: p.dateCollecte,
     montant: p.montant,
     type: 'GROS',
   }))
-  const detail = data.filter((p) => p.type === 'DETAIL').map((p) => ({
+  const detail = safeData.filter((p) => p.type === 'DETAIL').map((p) => ({
     date: formatDate(p.dateCollecte),
     rawDate: p.dateCollecte,
     montant: p.montant,
