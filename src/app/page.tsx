@@ -107,11 +107,26 @@ async function Stats() {
 export default function HomePage() {
   return (
     <div>
-      {/* HERO */}
-      <section className="relative overflow-hidden border-b border-border/60 bg-gradient-to-br from-terra/10 via-safran/15 to-jade/10">
-        <div className="container mx-auto px-4 py-12 sm:py-20">
-          <div className="max-w-3xl mx-auto text-center space-y-6">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-background/60 border border-border/60 text-xs font-medium text-terra">
+      {/* HERO avec image du marché haïtien */}
+      <section className="relative overflow-hidden border-b border-border/60">
+        {/* Image de fond — marché haïtien */}
+        <div className="absolute inset-0">
+          <img
+            src="/hero/marche-haitien.png"
+            alt="Marché haïtien animé avec étals colorés de produits"
+            className="w-full h-full object-cover"
+            loading="eager"
+            fetchPriority="high"
+          />
+          {/* Overlay dégradé pour la lisibilité du texte */}
+          <div className="absolute inset-0 bg-gradient-to-br from-background/95 via-background/85 to-terra/30" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-background/40" />
+        </div>
+
+        {/* Contenu par-dessus */}
+        <div className="relative container mx-auto px-4 py-16 sm:py-24 lg:py-28">
+          <div className="max-w-3xl space-y-6">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-background/80 backdrop-blur-sm border border-terra/30 text-xs font-medium text-terra shadow-sm">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-terra opacity-75"></span>
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-terra"></span>
@@ -119,31 +134,47 @@ export default function HomePage() {
               Données en direct du terrain
             </div>
 
-            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-tight">
               Les prix du marché haïtien,
-              <span className="text-terra"> à portée de main</span>
+              <span className="block text-terra mt-1">à portée de main</span>
             </h1>
 
-            <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg text-foreground/90 max-w-2xl leading-relaxed">
               PrixMarket vous permet de consulter en temps réel les prix des
               produits vendus en gros et au détail sur les marchés d'Haïti,
               collectés par des agents locaux. Commencez par Delmas.
             </p>
 
-            <div className="w-full max-w-2xl mx-auto">
+            <div className="w-full max-w-2xl">
               <SearchBar size="lg" autoFocus={false} />
             </div>
 
-            <div className="flex flex-wrap justify-center items-center gap-3 pt-2">
-              <span className="text-sm text-muted-foreground">ou parcourez :</span>
+            <div className="flex flex-wrap items-center gap-3 pt-1">
+              <span className="text-sm text-foreground/80">ou parcourez :</span>
               <CommuneSelector />
+            </div>
+
+            {/* Indicateurs rapides */}
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-4 text-xs text-foreground/80">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-jade" />
+                Données collectées par des agents locaux
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-safran" />
+                Mises à jour quotidiennes
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-terra" />
+                Gratuit et open-source
+              </span>
             </div>
           </div>
         </div>
       </section>
 
       {/* STATS */}
-      <section className="border-b border-border/60">
+      <section className="border-b border-border/60 bg-secondary/30">
         <div className="container mx-auto px-4 py-10">
           <Suspense fallback={<div className="h-24 animate-pulse rounded bg-muted" />}>
             <Stats />
@@ -187,25 +218,57 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* CTA AGENT */}
-      <section className="bg-secondary/40 border-t border-border/60">
+      {/* CTA AGENT avec illustration */}
+      <section className="bg-gradient-to-br from-terra/10 via-safran/15 to-jade/10 border-t border-border/60">
         <div className="container mx-auto px-4 py-12">
-          <div className="rounded-xl border border-terra/30 bg-background p-6 sm:p-8 max-w-3xl mx-auto">
-            <h2 className="text-xl sm:text-2xl font-bold mb-2">
-              Vous êtes commerçant ou acteur du marché ?
-            </h2>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-              Devenez agent collecteur PrixMarket. Soumettez les prix de votre
-              marché directement depuis votre téléphone via Telegram, et
-              aidez à construire une information transparente pour tous les
-              Haïtiens.
-            </p>
-            <Link
-              href="/a-propos"
-              className="inline-flex items-center justify-center rounded-md bg-terra text-terra-foreground px-4 py-2 text-sm font-medium hover:bg-terra/90 transition-colors"
-            >
-              Comment devenir agent ?
-            </Link>
+          <div className="grid gap-6 md:grid-cols-2 items-center max-w-5xl mx-auto">
+            {/* Texte */}
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-background/80 border border-terra/30 text-xs font-medium text-terra">
+                <Users className="h-3.5 w-3.5" />
+                Devenir agent collecteur
+              </div>
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                Vous êtes commerçant ou acteur du marché ?
+              </h2>
+              <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+                Devenez agent collecteur PrixMarket. Soumettez les prix de votre
+                marché directement depuis votre téléphone via Telegram, et
+                aidez à construire une information transparente pour tous les
+                Haïtiens.
+              </p>
+              <ul className="space-y-2 text-sm">
+                <li className="flex items-start gap-2">
+                  <span className="text-jade mt-0.5">✓</span>
+                  <span>Accès gratuit au bot Telegram</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-jade mt-0.5">✓</span>
+                  <span>Soumission en 30 secondes via menu au clic</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-jade mt-0.5">✓</span>
+                  <span>Données visibles par toute la communauté haïtienne</span>
+                </li>
+              </ul>
+              <Link
+                href="/a-propos"
+                className="inline-flex items-center justify-center rounded-md bg-terra text-terra-foreground px-5 py-2.5 text-sm font-medium hover:bg-terra/90 transition-colors mt-2"
+              >
+                Comment devenir agent ?
+              </Link>
+            </div>
+
+            {/* Image illustrative */}
+            <div className="relative aspect-[3/4] sm:aspect-[4/5] rounded-xl overflow-hidden border border-border/60 shadow-lg">
+              <img
+                src="/hero/agent-collecteur.png"
+                alt="Marchande haïtienne au téléphone dans son marché"
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-terra/20 via-transparent to-transparent" />
+            </div>
           </div>
         </div>
       </section>
